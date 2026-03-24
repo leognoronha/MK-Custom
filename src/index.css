@@ -338,29 +338,54 @@ h1 {
   image-rendering: pixelated; /* Retro rendering hint */
 }
 
-/* Arcade Select Effects */
-.cell.cursor::after {
+/* P1 Effects (Red/Green) */
+.cell.cursor-p1::after {
   content: '';
   position: absolute;
   inset: -4px;
   border: 6px solid #38d676; /* MK Green */
-  animation: blink 0.4s infinite alternate;
+  animation: blink-p1 0.4s infinite alternate;
   pointer-events: none;
   z-index: 2;
 }
 
-.cell.selected {
+.cell.selected-p1 {
   box-shadow: inset 0 0 0 4px #d32f2f; /* MK Red for selection */
   border-color: #d32f2f;
 }
 
-.cell.cursor {
+.cell.cursor-p1 {
   border-color: #38d676;
 }
 
-@keyframes blink {
+@keyframes blink-p1 {
   0% { opacity: 1; border-color: #38d676; }
   100% { opacity: 0; border-color: #1b5e20; }
+}
+
+/* P2 Effects (Cyan/Blue) */
+.cell.cursor-p2::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border: 4px dashed #00bcd4; /* SubZero Cyan */
+  animation: blink-p2 0.3s infinite alternate;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.cell.selected-p2 {
+  box-shadow: inset 0 0 0 4px #1976d2; /* Deep Blue selection */
+  border-color: #1976d2;
+}
+
+.cell.cursor-p2 {
+  border-color: #00bcd4;
+}
+
+@keyframes blink-p2 {
+  0% { opacity: 1; border-color: #00bcd4; }
+  100% { opacity: 0; border-color: #006064; }
 }
 
 /* Profiles Section */

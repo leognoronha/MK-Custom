@@ -21,6 +21,9 @@ interface ToolbarProps {
   updateProfile: (id: string) => void
   deleteProfile: (id: string) => void
   resetGrid: () => void
+  peerId: string | null
+  isConnected: boolean
+  isHost: boolean
 }
 
 export function Toolbar({
@@ -42,7 +45,10 @@ export function Toolbar({
   loadProfile,
   updateProfile,
   deleteProfile,
-  resetGrid
+  resetGrid,
+  peerId,
+  isConnected,
+  isHost
 }: ToolbarProps) {
   const [newProfileName, setNewProfileName] = useState('')
 
@@ -61,7 +67,7 @@ export function Toolbar({
       <div className="toolbar-panel">
         <label className="field">
           <span>Título</span>
-          <input value={title} onChange={(event) => setTitle(event.target.value)} />
+          <input value={title} onChange={(event) => setTitle(event.target.value)} disabled={!isHost} title={!isHost ? "Apenas o dono da sala pode mudar isso." : ""} />
         </label>
         <label className="field checkbox">
           <input
@@ -76,45 +82,77 @@ export function Toolbar({
           <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
             <label className="field" style={{ flex: 1 }}>
               <span>Linhas</span>
-              <input type="number" min="1" max="10" value={rows} onChange={(e) => updateGridSize(Number(e.target.value), cols)} />
+              <input type="number" min="1" max="10" value={rows} onChange={(e) => updateGridSize(Number(e.target.value), cols)} disabled={!isHost} />
             </label>
             <label className="field" style={{ flex: 1 }}>
               <span>Colunas</span>
-              <input type="number" min="1" max="10" value={cols} onChange={(e) => updateGridSize(rows, Number(e.target.value))} />
+              <input type="number" min="1" max="10" value={cols} onChange={(e) => updateGridSize(rows, Number(e.target.value))} disabled={!isHost} />
             </label>
           </div>
         )}
 
         <label className="field" style={{ marginTop: '8px' }}>
           <span>Fundo da tela</span>
-          <input type="file" accept="image/*" onChange={onBackgroundUpload} />
+          <input type="file" accept="image/*" onChange={onBackgroundUpload} disabled={!isHost} title={!isHost ? 'Espera, você é convidado, não pode mudar fotos gerais!' : ''} />
         </label>
 
         {/* SECTION FOR SAVES */}
-        <div className="profiles-section">
-          <span className="profiles-header">Meus Saves</span>
-          <div className="profile-input-group">
-            <button onClick={resetGrid} className="btn-new">Novo</button>
-            <input 
-              value={newProfileName} 
-              onChange={e => setNewProfileName(e.target.value)} 
-              placeholder="Ex: MK 3"
-            />
-            <button onClick={handleSave} disabled={!newProfileName.trim()}>Salvar</button>
-          </div>
-          
-          {profiles.length > 0 && (
-            <div className="profiles-list">
-              {profiles.map(p => (
-                <div key={p.id} className="profile-item">
-                  <span className="profile-name">{p.profileName}</span>
-                  <div className="profile-actions">
-                    <button className="btn-load" title="Carregar" onClick={() => loadProfile(p.id)}>Ler</button>
-                    <button className="btn-update" title="Salvar Alterações" onClick={() => updateProfile(p.id)}>Gravar</button>
-                    <button className="btn-delete" title="Excluir" onClick={() => deleteProfile(p.id)}>X</button>
+        {isHost && (
+          <div className="profiles-section">
+            <span className="profiles-header">Meus Saves</span>
+            <div className="profile-input-group">
+              <button onClick={resetGrid} className="btn-new">Novo</button>
+              <input 
+                value={newProfileName} 
+                onChange={e => setNewProfileName(e.target.value)} 
+                placeholder="Ex: MK 3"
+              />
+              <button onClick={handleSave} disabled={!newProfileName.trim()}>Salvar</button>
+            </div>
+            
+            {profiles.length > 0 && (
+              <div className="profiles-list">
+                {profiles.map(p => (
+                  <div key={p.id} className="profile-item">
+                    <span className="profile-name">{p.profileName}</span>
+                    <div className="profile-actions">
+                      <button className="btn-load" title="Carregar" onClick={() => loadProfile(p.id)}>Ler</button>
+                      <button className="btn-update" title="Salvar Alterações" onClick={() => updateProfile(p.id)}>Gravar</button>
+                      <button className="btn-delete" title="Excluir" onClick={() => deleteProfile(p.id)}>X</button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* SECTION FOR MULTIPLAYER */}
+        <div className="profiles-section" style={{ borderColor: '#2196f3', marginTop: '16px' }}>
+          <span className="profiles-header" style={{ color: '#64b5f6' }}>Multiplayer</span>
+          {isHost ? (
+            <div style={{ fontSize: '8px', color: '#fff', lineHeight: 1.5 }}>
+              {isConnected ? (
+                <div style={{ color: '#00e676', textAlign: 'center' }}>★ Player 2 na partida! ★</div>
+              ) : peerId ? (
+                <>
+                  <div style={{ marginBottom: '8px', color: '#bbb' }}>Mande este link pro seu Player 2:</div>
+                  <input
+                    readOnly
+                    value={`${window.location.origin}${window.location.pathname}?room=${peerId}`}
+                    onClick={(e) => (e.target as HTMLInputElement).select()}
+                    title="Clique para copiar"
+                    style={{ borderColor: '#1976d2', cursor: 'grab' }}
+                  />
+                  <div style={{ marginTop: '8px', color: '#ff9800', textAlign: 'center' }}>Aguardando conexão...</div>
+                </>
+              ) : (
+                <div style={{ color: '#ff9800', textAlign: 'center' }}>Conectando ao terminal...</div>
+              )}
+            </div>
+          ) : (
+            <div style={{ fontSize: '8px', color: isConnected ? '#00e676' : '#ff9800', textAlign: 'center' }}>
+              {isConnected ? '★ Conectado na sala do P1! ★' : 'Sincronizando...'}
             </div>
           )}
         </div>

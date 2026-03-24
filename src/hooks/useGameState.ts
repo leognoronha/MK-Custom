@@ -143,6 +143,14 @@ export function useGameState() {
     setProfiles(prev => prev.filter(p => p.id !== id))
   }, [])
 
+  const forceStateSync = useCallback((payload: Partial<SaveProfile>) => {
+    if (payload.title !== undefined) setTitle(payload.title)
+    if (payload.backgroundUrl !== undefined) setBackgroundUrl(payload.backgroundUrl)
+    if (payload.rows !== undefined) setRows(payload.rows)
+    if (payload.cols !== undefined) setCols(payload.cols)
+    if (payload.characters !== undefined) setCharacters(payload.characters)
+  }, [])
+
   const resetGrid = useCallback(() => {
     setCharacters(createDefaultCharacters(rows, cols))
     setTitle('SELECT YOUR FIGHTER')
@@ -183,5 +191,6 @@ export function useGameState() {
     updateProfile,
     deleteProfile,
     resetGrid,
+    forceStateSync,
   }
 }

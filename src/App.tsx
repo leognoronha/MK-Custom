@@ -3,6 +3,7 @@ import html2canvas from 'html2canvas'
 
 import { useGameState } from './hooks/useGameState'
 import { useAudio } from './hooks/useAudio'
+import { useMultiplayer } from './hooks/useMultiplayer'
 import type { Cursor } from './types'
 import { normalizeImage } from './utils/imageUtils'
 
@@ -29,7 +30,8 @@ function App() {
     loadProfile,
     updateProfile,
     deleteProfile,
-    resetGrid
+    resetGrid,
+    forceStateSync
   } = useGameState()
 
   const { muted, setMuted, startMusic, playMoveSound, playGong } = useAudio()
@@ -41,6 +43,40 @@ function App() {
 
   const boardRef = useRef<HTMLDivElement | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+
+  // MULTIPLAYER INTEGRATION
+  const { peerId, isConnected, isHost, remoteCursor, remoteSelectedIndex, sendEvent } = useMultiplayer({
+    onStateSync: (payload) => forceStateSync(payload),
+    onCursorMove: () => {
+      // handled inside hook
+    },
+    onSelect: () => {
+      // handled inside hook
+    },
+    onAudioPlay: (sound) => {
+      startMusic()
+      if (sound === 'move') playMoveSound()
+      if (sound === 'gong') playGong()
+    },
+    onGuestJoined: () => {
+      // Whenever a guest arrives, P1 blasts the current configuration cache perfectly.
+      sendEvent({
+        type: 'STATE_SYNC',
+        payload: { title, backgroundUrl, rows, cols, characters }
+      })
+    }
+  })
+
+  // Whenever Host changes massive states visually (background, adds row, loads save), push the update over network.
+  useEffect(() => {
+    if (isHost && isConnected) {
+      sendEvent({
+        type: 'STATE_SYNC',
+        payload: { title, backgroundUrl, rows, cols, characters }
+      })
+    }
+  }, [isHost, isConnected, title, backgroundUrl, rows, cols, characters, sendEvent])
+
 
   const focusedIndex = cursor.y * cols + cursor.x
   const previewIndex = focusedIndex
@@ -84,6 +120,8 @@ function App() {
         setCursor({ x: newX, y: newY })
         startMusic()
         playMoveSound()
+        sendEvent({ type: 'CURSOR_MOVE', player: isHost ? 1 : 2, cursor: { x: newX, y: newY } })
+        sendEvent({ type: 'AUDIO_PLAY', sound: 'move' })
       }
 
       if (e.key === 'Enter' || e.key === ' ') {
@@ -91,12 +129,14 @@ function App() {
         const index = newY * cols + newX
         setSelectedIndex(index)
         playGong()
+        sendEvent({ type: 'SELECT', player: isHost ? 1 : 2, index })
+        sendEvent({ type: 'AUDIO_PLAY', sound: 'gong' })
       }
     }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [cursor, rows, cols, startMusic, playMoveSound, playGong])
+  }, [cursor, rows, cols, startMusic, playMoveSound, playGong, isHost, sendEvent])
 
   const handlePaste = useCallback(
     (event: ClipboardEvent) => {
@@ -176,6 +216,9 @@ function App() {
         updateProfile={updateProfile}
         deleteProfile={deleteProfile}
         resetGrid={resetGrid}
+        peerId={peerId}
+        isConnected={isConnected}
+        isHost={isHost}
       />
 
       <main
@@ -195,7 +238,9 @@ function App() {
             <CharacterGrid
               characters={characters}
               cursor={cursor}
+              p2Cursor={isConnected ? remoteCursor : null}
               selectedIndex={selectedIndex}
+              p2SelectedIndex={isConnected ? remoteSelectedIndex : null}
               cols={cols}
               editMode={editMode}
               onHoverCell={() => {}}
@@ -203,6 +248,8 @@ function App() {
                 setCursor({ x: index % cols, y: Math.floor(index / cols) })
                 setSelectedIndex(index)
                 playGong()
+                sendEvent({ type: 'SELECT', player: isHost ? 1 : 2, index })
+                sendEvent({ type: 'AUDIO_PLAY', sound: 'gong' })
               }}
               triggerUpload={triggerUpload}
             />
