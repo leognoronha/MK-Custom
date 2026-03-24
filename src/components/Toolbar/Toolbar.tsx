@@ -1,4 +1,5 @@
-import React, { type ChangeEvent } from 'react'
+import React, { useState, type ChangeEvent } from 'react'
+import type { SaveProfile } from '../../types'
 
 interface ToolbarProps {
   toolbarOpen: boolean
@@ -14,6 +15,12 @@ interface ToolbarProps {
   rows: number
   cols: number
   updateGridSize: (r: number, c: number) => void
+  profiles: SaveProfile[]
+  saveCurrentProfile: (name: string) => void
+  loadProfile: (id: string) => void
+  updateProfile: (id: string) => void
+  deleteProfile: (id: string) => void
+  resetGrid: () => void
 }
 
 export function Toolbar({
@@ -29,8 +36,23 @@ export function Toolbar({
   setMuted,
   rows,
   cols,
-  updateGridSize
+  updateGridSize,
+  profiles,
+  saveCurrentProfile,
+  loadProfile,
+  updateProfile,
+  deleteProfile,
+  resetGrid
 }: ToolbarProps) {
+  const [newProfileName, setNewProfileName] = useState('')
+
+  const handleSave = () => {
+    if (newProfileName.trim()) {
+      saveCurrentProfile(newProfileName)
+      setNewProfileName('')
+    }
+  }
+
   return (
     <aside className={`toolbar ${toolbarOpen ? '' : 'collapsed'}`}>
       <button className="toolbar-toggle" onClick={() => setToolbarOpen(false)}> {/* Ocultar */}
@@ -67,10 +89,40 @@ export function Toolbar({
           <span>Fundo da tela</span>
           <input type="file" accept="image/*" onChange={onBackgroundUpload} />
         </label>
+
+        {/* SECTION FOR SAVES */}
+        <div className="profiles-section">
+          <span className="profiles-header">Meus Saves</span>
+          <div className="profile-input-group">
+            <button onClick={resetGrid} className="btn-new">Novo</button>
+            <input 
+              value={newProfileName} 
+              onChange={e => setNewProfileName(e.target.value)} 
+              placeholder="Ex: MK 3"
+            />
+            <button onClick={handleSave} disabled={!newProfileName.trim()}>Salvar</button>
+          </div>
+          
+          {profiles.length > 0 && (
+            <div className="profiles-list">
+              {profiles.map(p => (
+                <div key={p.id} className="profile-item">
+                  <span className="profile-name">{p.profileName}</span>
+                  <div className="profile-actions">
+                    <button className="btn-load" title="Carregar" onClick={() => loadProfile(p.id)}>Ler</button>
+                    <button className="btn-update" title="Salvar Alterações" onClick={() => updateProfile(p.id)}>Gravar</button>
+                    <button className="btn-delete" title="Excluir" onClick={() => deleteProfile(p.id)}>X</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         <button onClick={onExport} style={{ marginTop: '8px' }}>Exportar como PNG</button>
         <button onClick={() => setMuted((prev) => !prev)}>{muted ? 'Desmutar Audio' : 'Mutar Audio'}</button>
         
-        <small>Passe o mouse sobre os quadrados para navegar.</small>
+        <small>Mova usando SETAS ou WASD. Selecione com SPACE.</small>
       </div>
     </aside>
   )

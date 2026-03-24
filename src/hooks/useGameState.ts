@@ -1,6 +1,6 @@
-import { useState, useMemo, useEffect } from 'react'
-import type { Character } from '../types'
-import { STORAGE_KEY, DEFAULT_ROWS, DEFAULT_COLS, createDefaultCharacters } from '../utils/constants'
+import { useState, useMemo, useEffect, useCallback } from 'react'
+import type { Character, SaveProfile } from '../types'
+import { STORAGE_KEY, PROFILES_STORAGE_KEY, DEFAULT_ROWS, DEFAULT_COLS, createDefaultCharacters } from '../utils/constants'
 
 type GameState = {
   characters: Character[]
@@ -24,6 +24,16 @@ export function useGameState() {
     }
   }, [])
 
+  const loadedProfiles = useMemo(() => {
+    const raw = localStorage.getItem(PROFILES_STORAGE_KEY)
+    if (!raw) return []
+    try {
+      return JSON.parse(raw) as SaveProfile[]
+    } catch {
+      return []
+    }
+  }, [])
+
   const [rows, setRows] = useState(loadedState?.rows ?? DEFAULT_ROWS)
   const [cols, setCols] = useState(loadedState?.cols ?? DEFAULT_COLS)
 
@@ -34,8 +44,36 @@ export function useGameState() {
     return createDefaultCharacters(loadedState?.rows ?? DEFAULT_ROWS, loadedState?.cols ?? DEFAULT_COLS)
   })
 
+  const [title, setTitle] = useState(loadedState?.title ?? 'SELECT YOUR FIGHTER')
+  const [backgroundUrl, setBackgroundUrl] = useState(loadedState?.backgroundUrl ?? '')
+  
+  const [profiles, setProfiles] = useState<SaveProfile[]>(loadedProfiles)
+
+  // Current State persistence
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({ characters, title, backgroundUrl, rows, cols }),
+      )
+    } catch (error) {
+      console.warn('Falha ao salvar gameState no localStorage.', error)
+    }
+  }, [characters, title, backgroundUrl, rows, cols])
+
+  // Profiles persistence
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        PROFILES_STORAGE_KEY,
+        JSON.stringify(profiles),
+      )
+    } catch (error) {
+      console.warn('Falha ao salvar profiles no localStorage.', error)
+    }
+  }, [profiles])
+
   const updateGridSize = (newRows: number, newCols: number) => {
-    // Limits avoiding broken layouts
     if (newRows < 1 || newRows > 10) newRows = rows
     if (newCols < 1 || newCols > 10) newCols = cols
     
@@ -61,20 +99,6 @@ export function useGameState() {
     })
   }
 
-  const [title, setTitle] = useState(loadedState?.title ?? 'SELECT YOUR FIGHTER')
-  const [backgroundUrl, setBackgroundUrl] = useState(loadedState?.backgroundUrl ?? '')
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({ characters, title, backgroundUrl, rows, cols }),
-      )
-    } catch (error) {
-      console.warn('Falha ao salvar no localStorage.', error)
-    }
-  }, [characters, title, backgroundUrl, rows, cols])
-
   const updateCellImage = (index: number, image: string) => {
     setCharacters((prev) =>
       prev.map((character, currentIndex) =>
@@ -91,17 +115,73 @@ export function useGameState() {
     )
   }
 
+  const saveCurrentProfile = useCallback((profileName: string) => {
+    if (!profileName.trim()) return
+    const newProfile: SaveProfile = {
+      id: Date.now().toString(),
+      profileName: profileName.trim(),
+      title,
+      backgroundUrl,
+      rows,
+      cols,
+      characters,
+    }
+    setProfiles(prev => [...prev, newProfile])
+  }, [title, backgroundUrl, rows, cols, characters])
+
+  const loadProfile = useCallback((id: string) => {
+    const target = profiles.find(p => p.id === id)
+    if (!target) return
+    setTitle(target.title)
+    setBackgroundUrl(target.backgroundUrl)
+    setRows(target.rows)
+    setCols(target.cols)
+    setCharacters(target.characters)
+  }, [profiles])
+
+  const deleteProfile = useCallback((id: string) => {
+    setProfiles(prev => prev.filter(p => p.id !== id))
+  }, [])
+
+  const resetGrid = useCallback(() => {
+    setCharacters(createDefaultCharacters(rows, cols))
+    setTitle('SELECT YOUR FIGHTER')
+    setBackgroundUrl('')
+  }, [rows, cols])
+
+  const updateProfile = useCallback((id: string) => {
+    setProfiles(prev => prev.map(p => {
+      if (p.id === id) {
+        return {
+          ...p,
+          title,
+          backgroundUrl,
+          rows,
+          cols,
+          characters
+        }
+      }
+      return p
+    }))
+  }, [title, backgroundUrl, rows, cols, characters])
+
   return {
     characters,
     title,
     backgroundUrl,
     rows,
     cols,
+    profiles,
     setCharacters,
     setTitle,
     setBackgroundUrl,
     updateGridSize,
     updateCellImage,
     updateCellName,
+    saveCurrentProfile,
+    loadProfile,
+    updateProfile,
+    deleteProfile,
+    resetGrid,
   }
 }

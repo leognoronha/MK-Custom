@@ -19,11 +19,17 @@ function App() {
     backgroundUrl, 
     rows, 
     cols, 
+    profiles,
     setTitle, 
     setBackgroundUrl, 
     updateGridSize, 
     updateCellImage, 
-    updateCellName 
+    updateCellName,
+    saveCurrentProfile,
+    loadProfile,
+    updateProfile,
+    deleteProfile,
+    resetGrid
   } = useGameState()
 
   const { muted, setMuted, startMusic, playMoveSound, playGong } = useAudio()
@@ -48,37 +54,8 @@ function App() {
         console.warn('Falha ao processar imagem.', error)
       }
     },
-    [focusedIndex, updateCellImage],
+    [focusedIndex, updateCellImage, selectedIndex],
   )
-
-  const handlePaste = useCallback(
-    (event: ClipboardEvent) => {
-      if (!editMode) return
-      const pastedImage = Array.from(event.clipboardData?.items ?? []).find((item) =>
-        item.type.startsWith('image/'),
-      )
-      if (!pastedImage) return
-      const file = pastedImage.getAsFile()
-      if (!file) return
-      event.preventDefault()
-      handleFileUpload(file)
-    },
-    [editMode, handleFileUpload],
-  )
-
-  const handleExport = useCallback(async () => {
-    if (!boardRef.current) return
-    const canvas = await html2canvas(boardRef.current, {
-      backgroundColor: null,
-      scale: 2,
-      useCORS: true,
-    })
-    const dataUrl = canvas.toDataURL('image/png')
-    const link = document.createElement('a')
-    link.download = 'mk-select-screen.png'
-    link.href = dataUrl
-    link.click()
-  }, [])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -121,6 +98,21 @@ function App() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [cursor, rows, cols, startMusic, playMoveSound, playGong])
 
+  const handlePaste = useCallback(
+    (event: ClipboardEvent) => {
+      if (!editMode) return
+      const pastedImage = Array.from(event.clipboardData?.items ?? []).find((item) =>
+        item.type.startsWith('image/'),
+      )
+      if (!pastedImage) return
+      const file = pastedImage.getAsFile()
+      if (!file) return
+      event.preventDefault()
+      handleFileUpload(file)
+    },
+    [editMode, handleFileUpload],
+  )
+
   useEffect(() => {
     window.addEventListener('paste', handlePaste)
     return () => window.removeEventListener('paste', handlePaste)
@@ -137,6 +129,20 @@ function App() {
     }
     reader.readAsDataURL(file)
   }
+
+  const handleExport = useCallback(async () => {
+    if (!boardRef.current) return
+    const canvas = await html2canvas(boardRef.current, {
+      backgroundColor: null,
+      scale: 2,
+      useCORS: true,
+    })
+    const dataUrl = canvas.toDataURL('image/png')
+    const link = document.createElement('a')
+    link.download = 'mk-select-screen.png'
+    link.href = dataUrl
+    link.click()
+  }, [])
 
   const triggerUpload = () => fileInputRef.current?.click()
 
@@ -164,6 +170,12 @@ function App() {
         rows={rows}
         cols={cols}
         updateGridSize={updateGridSize}
+        profiles={profiles}
+        saveCurrentProfile={saveCurrentProfile}
+        loadProfile={loadProfile}
+        updateProfile={updateProfile}
+        deleteProfile={deleteProfile}
+        resetGrid={resetGrid}
       />
 
       <main
