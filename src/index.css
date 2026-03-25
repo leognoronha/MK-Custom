@@ -496,3 +496,83 @@ h1 {
     margin-left: -100%;
   }
 }
+
+/* Random Highlight Effect — P1 (amarelo/laranja) */
+.cell.random-highlight-p1 {
+  border-color: #ffeb3b;
+  box-shadow: 0 0 16px #ffeb3b, inset 0 0 8px rgba(255, 235, 59, 0.3);
+  animation: blink-random-p1 0.12s infinite alternate;
+  z-index: 1;
+}
+
+@keyframes blink-random-p1 {
+  0%  { border-color: #ffeb3b; box-shadow: 0 0 18px #ffeb3b, 0 0 40px #ff9800; }
+  100%{ border-color: #ff9800; box-shadow: 0 0 6px #ff9800; }
+}
+
+/* Random Highlight Effect — P2 (cyan, mesmas cores do cursor-p2) */
+.cell.random-highlight-p2 {
+  border-color: #00bcd4;
+  box-shadow: 0 0 16px #00bcd4, inset 0 0 8px rgba(0, 188, 212, 0.3);
+  animation: blink-random-p2 0.12s infinite alternate;
+  z-index: 1;
+}
+
+@keyframes blink-random-p2 {
+  0%  { border-color: #00bcd4; box-shadow: 0 0 18px #00bcd4, 0 0 40px #006064; }
+  100%{ border-color: #006064; box-shadow: 0 0 6px #006064; }
+}
+
+/* Botão Aleatório */
+.random-btn {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  background: linear-gradient(180deg, #c8a900 0%, #8a6e00 100%);
+  color: #fff;
+  border: 4px solid #6a5000;
+  border-top-color: #ffe566;
+  border-left-color: #ffe566;
+  padding: 14px 28px;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 11px;
+  text-transform: uppercase;
+  cursor: pointer;
+  letter-spacing: 1px;
+  text-shadow: 2px 2px 0 #4a3a00;
+  box-shadow: 0 0 18px rgba(255, 215, 0, 0.6), 0 4px 0 #4a3a00;
+  transition: transform 0.1s, box-shadow 0.1s;
+  animation: pulse-gold 2s ease-in-out infinite;
+}
+
+.random-btn:hover:not(:disabled) {
+  transform: translateX(-50%) scale(1.06);
+  box-shadow: 0 0 32px rgba(255, 215, 0, 0.9), 0 4px 0 #4a3a00;
+}
+
+.random-btn:active:not(:disabled) {
+  transform: translateX(-50%) scale(0.96);
+  border: 4px solid #6a5000;
+  border-bottom-color: #ffe566;
+  border-right-color: #ffe566;
+  box-shadow: 0 0 12px rgba(255, 215, 0, 0.5), 0 1px 0 #4a3a00;
+}
+
+.random-btn.randomizing {
+  animation: pulse-gold-fast 0.3s ease-in-out infinite;
+  cursor: not-allowed;
+  opacity: 0.85;
+}
+
+@keyframes pulse-gold {
+  0%, 100% { box-shadow: 0 0 18px rgba(255, 215, 0, 0.5), 0 4px 0 #4a3a00; }
+  50%       { box-shadow: 0 0 32px rgba(255, 215, 0, 0.9), 0 4px 0 #4a3a00; }
+}
+
+@keyframes pulse-gold-fast {
+  0%, 100% { box-shadow: 0 0 10px rgba(255, 235, 59, 0.6), 0 4px 0 #4a3a00; }
+  50%       { box-shadow: 0 0 28px rgba(255, 235, 59, 1.0), 0 4px 0 #4a3a00; }
+}
+

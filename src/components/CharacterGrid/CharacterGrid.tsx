@@ -7,6 +7,8 @@ interface CharacterGridProps {
   p2Cursor: Cursor | null
   selectedIndex: number | null
   p2SelectedIndex: number | null
+  p1RandomHighlight: number | null
+  p2RandomHighlight: number | null
   cols: number
   editMode: boolean
   onHoverCell: (index: number) => void
@@ -20,15 +22,15 @@ export function CharacterGrid({
   p2Cursor,
   selectedIndex,
   p2SelectedIndex,
+  p1RandomHighlight,
+  p2RandomHighlight,
   cols,
   editMode,
   onHoverCell,
   onClickCell,
   triggerUpload,
 }: CharacterGridProps) {
-  // P1 local cursor
   const p1CursorIndex = cursor.y * cols + cursor.x
-  // P2 remote cursor
   const p2CursorIndex = p2Cursor ? p2Cursor.y * cols + p2Cursor.x : -1
 
   return (
@@ -38,6 +40,8 @@ export function CharacterGrid({
         const isP2Cursor = index === p2CursorIndex
         const isP1Selected = index === selectedIndex
         const isP2Selected = index === p2SelectedIndex
+        const isP1RandomHighlight = index === p1RandomHighlight
+        const isP2RandomHighlight = index === p2RandomHighlight
 
         return (
           <GridCell
@@ -47,6 +51,8 @@ export function CharacterGrid({
             isP2Cursor={isP2Cursor}
             isP1Selected={isP1Selected}
             isP2Selected={isP2Selected}
+            isP1RandomHighlight={isP1RandomHighlight}
+            isP2RandomHighlight={isP2RandomHighlight}
             onMouseEnter={() => onHoverCell(index)}
             onClick={() => onClickCell(index)}
             onDoubleClick={() => editMode && triggerUpload()}
