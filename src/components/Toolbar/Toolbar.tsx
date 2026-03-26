@@ -74,10 +74,12 @@ export function Toolbar({
             type="checkbox"
             checked={editMode}
             onChange={(event) => setEditMode(event.target.checked)}
+            disabled={!isHost}
+            title={!isHost ? 'Apenas o dono da sala pode editar.' : ''}
           />
-          <span>Modo de edição</span>
+          <span style={!isHost ? { opacity: 0.45 } : undefined}>Modo de edição</span>
         </label>
-        
+
         {editMode && (
           <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
             <label className="field" style={{ flex: 1 }}>
@@ -102,14 +104,14 @@ export function Toolbar({
             <span className="profiles-header">Meus Saves</span>
             <div className="profile-input-group">
               <button onClick={resetGrid} className="btn-new">Novo</button>
-              <input 
-                value={newProfileName} 
-                onChange={e => setNewProfileName(e.target.value)} 
+              <input
+                value={newProfileName}
+                onChange={e => setNewProfileName(e.target.value)}
                 placeholder="Ex: MK 3"
               />
               <button onClick={handleSave} disabled={!newProfileName.trim()}>Salvar</button>
             </div>
-            
+
             {profiles.length > 0 && (
               <div className="profiles-list">
                 {profiles.map(p => (
@@ -151,15 +153,24 @@ export function Toolbar({
               )}
             </div>
           ) : (
-            <div style={{ fontSize: '8px', color: isConnected ? '#00e676' : '#ff9800', textAlign: 'center' }}>
-              {isConnected ? '★ Conectado na sala do P1! ★' : 'Sincronizando...'}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'center' }}>
+              <div style={{ fontSize: '8px', color: isConnected ? '#00e676' : '#ff9800', textAlign: 'center' }}>
+                {isConnected ? '★ Conectado na sala do P1! ★' : 'Sincronizando...'}
+              </div>
+              <button
+                onClick={() => window.location.href = window.location.pathname}
+                style={{ background: '#d32f2f', borderColor: '#b71c1c', width: '100%', fontSize: '9px', marginTop: '4px' }}
+                title="Sair da sala e voltar ao modo solo"
+              >
+                Sair da Sala
+              </button>
             </div>
           )}
         </div>
 
         <button onClick={onExport} style={{ marginTop: '8px' }}>Exportar como PNG</button>
         <button onClick={() => setMuted((prev) => !prev)}>{muted ? 'Desmutar Audio' : 'Mutar Audio'}</button>
-        
+
         <small>Mova usando SETAS ou WASD. Selecione com SPACE.</small>
       </div>
     </aside>
