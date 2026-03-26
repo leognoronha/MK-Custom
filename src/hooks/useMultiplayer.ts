@@ -6,6 +6,7 @@ interface UseMultiplayerProps {
   onStateSync: (payload: any) => void
   onCursorMove: (player: 1 | 2, cursor: Cursor) => void
   onSelect: (player: 1 | 2, index: number) => void
+  onRandomSelect: (player: 1 | 2, index: number) => void
   onAudioPlay: (sound: 'move' | 'gong') => void
   onGuestJoined: () => void
 }
@@ -14,6 +15,7 @@ export function useMultiplayer({
   onStateSync,
   onCursorMove,
   onSelect,
+  onRandomSelect,
   onAudioPlay,
   onGuestJoined
 }: UseMultiplayerProps) {
@@ -23,13 +25,14 @@ export function useMultiplayer({
 
   const [remoteCursor, setRemoteCursor] = useState<Cursor>({ x: 0, y: 0 })
   const [remoteSelectedIndex, setRemoteSelectedIndex] = useState<number | null>(null)
+  const [remoteRandomHighlight, setRemoteRandomHighlight] = useState<number | null>(null)
 
   const connectionRef = useRef<DataConnection | null>(null)
 
-  const callbacksRef = useRef({ onStateSync, onCursorMove, onSelect, onAudioPlay, onGuestJoined })
+  const callbacksRef = useRef({ onStateSync, onCursorMove, onSelect, onRandomSelect, onAudioPlay, onGuestJoined })
   useEffect(() => {
-    callbacksRef.current = { onStateSync, onCursorMove, onSelect, onAudioPlay, onGuestJoined }
-  }, [onStateSync, onCursorMove, onSelect, onAudioPlay, onGuestJoined])
+    callbacksRef.current = { onStateSync, onCursorMove, onSelect, onRandomSelect, onAudioPlay, onGuestJoined }
+  }, [onStateSync, onCursorMove, onSelect, onRandomSelect, onAudioPlay, onGuestJoined])
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search)
@@ -75,6 +78,28 @@ export function useMultiplayer({
       })
     }
 
+    const handleEvent = (event: MultiplayerEvent) => {
+      if (event.type === 'HEARTBEAT') return
+      if (event.type === 'STATE_SYNC') callbacksRef.current.onStateSync(event.payload)
+      if (event.type === 'CURSOR_MOVE') {
+        setRemoteCursor(event.cursor)
+        callbacksRef.current.onCursorMove(event.player, event.cursor)
+      }
+      if (event.type === 'SELECT') {
+        setRemoteSelectedIndex(event.index)
+        callbacksRef.current.onSelect(event.player, event.index)
+      }
+      if (event.type === 'RANDOM_HIGHLIGHT') {
+        setRemoteRandomHighlight(event.index)
+      }
+      if (event.type === 'RANDOM_SELECT') {
+        setRemoteSelectedIndex(event.index)
+        setRemoteRandomHighlight(null)
+        callbacksRef.current.onRandomSelect(event.player, event.index)
+      }
+      if (event.type === 'AUDIO_PLAY') callbacksRef.current.onAudioPlay(event.sound)
+    }
+
     if (room) {
       setIsHost(false)
       peer.on('open', () => {
@@ -85,20 +110,7 @@ export function useMultiplayer({
           connectionRef.current = conn
           setIsConnected(true)
         })
-        conn.on('data', (data: unknown) => {
-          const event = data as MultiplayerEvent
-          if (event.type === 'HEARTBEAT') return
-          if (event.type === 'STATE_SYNC') callbacksRef.current.onStateSync(event.payload)
-          if (event.type === 'CURSOR_MOVE') {
-            setRemoteCursor(event.cursor)
-            callbacksRef.current.onCursorMove(event.player, event.cursor)
-          }
-          if (event.type === 'SELECT') {
-            setRemoteSelectedIndex(event.index)
-            callbacksRef.current.onSelect(event.player, event.index)
-          }
-          if (event.type === 'AUDIO_PLAY') callbacksRef.current.onAudioPlay(event.sound)
-        })
+        conn.on('data', (data: unknown) => handleEvent(data as MultiplayerEvent))
       })
     } else {
       setIsHost(true)
@@ -113,19 +125,7 @@ export function useMultiplayer({
           callbacksRef.current.onGuestJoined()
         })
 
-        conn.on('data', (data: unknown) => {
-          const event = data as MultiplayerEvent
-          if (event.type === 'HEARTBEAT') return
-          if (event.type === 'CURSOR_MOVE') {
-            setRemoteCursor(event.cursor)
-            callbacksRef.current.onCursorMove(event.player, event.cursor)
-          }
-          if (event.type === 'SELECT') {
-            setRemoteSelectedIndex(event.index)
-            callbacksRef.current.onSelect(event.player, event.index)
-          }
-          if (event.type === 'AUDIO_PLAY') callbacksRef.current.onAudioPlay(event.sound)
-        })
+        conn.on('data', (data: unknown) => handleEvent(data as MultiplayerEvent))
       })
     }
 
@@ -146,6 +146,7 @@ export function useMultiplayer({
     isHost,
     remoteCursor,
     remoteSelectedIndex,
+    remoteRandomHighlight,
     sendEvent
   }
 }

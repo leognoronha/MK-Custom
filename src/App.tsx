@@ -41,11 +41,24 @@ function App() {
   const [cursor, setCursor] = useState<Cursor>({ x: 0, y: 0 })
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null)
 
+  // Estado de aleatório local (apenas para ESTE player)
+  const [localRandomHighlight, setLocalRandomHighlight] = useState<number | null>(null)
+  const [isLocalRandomizing, setIsLocalRandomizing] = useState(false)
+  const randomAnimRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   const boardRef = useRef<HTMLDivElement | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   // MULTIPLAYER INTEGRATION
-  const { peerId, isConnected, isHost, remoteCursor, remoteSelectedIndex, sendEvent } = useMultiplayer({
+  const {
+    peerId,
+    isConnected,
+    isHost,
+    remoteCursor,
+    remoteSelectedIndex,
+    remoteRandomHighlight,
+    sendEvent
+  } = useMultiplayer({
     onStateSync: (payload) => forceStateSync(payload),
     onCursorMove: () => {
       // handled inside hook
@@ -53,13 +66,15 @@ function App() {
     onSelect: () => {
       // handled inside hook
     },
+    onRandomSelect: () => {
+      // handled inside hook — remoteSelectedIndex is updated there
+    },
     onAudioPlay: (sound) => {
       startMusic()
       if (sound === 'move') playMoveSound()
       if (sound === 'gong') playGong()
     },
     onGuestJoined: () => {
-      // Whenever a guest arrives, P1 blasts the current configuration cache perfectly.
       sendEvent({
         type: 'STATE_SYNC',
         payload: { title, backgroundUrl, rows, cols, characters }
@@ -67,7 +82,7 @@ function App() {
     }
   })
 
-  // Whenever Host changes massive states visually (background, adds row, loads save), push the update over network.
+  // Whenever Host changes massive states visually, push the update over network.
   useEffect(() => {
     if (isHost && isConnected) {
       sendEvent({
@@ -186,6 +201,88 @@ function App() {
 
   const triggerUpload = () => fileInputRef.current?.click()
 
+  /**
+   * handleRandom — executa a animação de aleatório para ESTE player (P1 ou P2).
+   *
+   * P1 (host): usa setCursor + setSelectedIndex locais.
+   * P2 (guest): NÃO mexe no cursor local (que pertence ao P1 na sua tela);
+   *   manda RANDOM_HIGHLIGHT a cada passo para o outro lado ver,
+   *   e RANDOM_SELECT no final.
+   */
+  const handleRandom = useCallback(() => {
+    if (isLocalRandomizing) return
+    const total = characters.length
+    if (total === 0) return
+
+    setIsLocalRandomizing(true)
+    startMusic()
+
+    const player: 1 | 2 = isHost ? 1 : 2
+    const TOTAL_STEPS = 30
+    let step = 0
+    let lastIndex = -1
+
+    const runStep = () => {
+      step++
+      let nextIndex: number
+      do {
+        nextIndex = Math.floor(Math.random() * total)
+      } while (nextIndex === lastIndex && total > 1)
+      lastIndex = nextIndex
+
+      // Destaque local (sempre, pra quem clicou ver)
+      setLocalRandomHighlight(nextIndex)
+      // Sincroniza destaque remoto (o outro player vê a animação acontecendo)
+      sendEvent({ type: 'RANDOM_HIGHLIGHT', player, index: nextIndex })
+      playMoveSound()
+
+      if (step < TOTAL_STEPS) {
+        const progress = step / TOTAL_STEPS
+        const delay = progress < 0.6
+          ? 80 - progress * 60
+          : 44 + (progress - 0.6) * 350
+        randomAnimRef.current = setTimeout(runStep, delay)
+      } else {
+        // Seleção final
+        const finalIndex = lastIndex
+        setTimeout(() => {
+          setLocalRandomHighlight(null)
+          sendEvent({ type: 'RANDOM_HIGHLIGHT', player, index: null })
+
+          const newCursor = { x: finalIndex % cols, y: Math.floor(finalIndex / cols) }
+
+          if (isHost) {
+            // P1: atualiza o próprio selectedIndex e cursor localmente
+            setSelectedIndex(finalIndex)
+            setCursor(newCursor)
+            // Avisa P2 da seleção E do novo cursor
+            sendEvent({ type: 'RANDOM_SELECT', player: 1, index: finalIndex })
+            sendEvent({ type: 'CURSOR_MOVE', player: 1, cursor: newCursor })
+          } else {
+            // P2: atualiza localmente
+            setSelectedIndex(finalIndex)
+            setCursor(newCursor)
+            // Avisa P1 da seleção E do novo cursor
+            sendEvent({ type: 'RANDOM_SELECT', player: 2, index: finalIndex })
+            sendEvent({ type: 'CURSOR_MOVE', player: 2, cursor: newCursor })
+          }
+
+          playGong()
+          sendEvent({ type: 'AUDIO_PLAY', sound: 'gong' })
+          setIsLocalRandomizing(false)
+        }, 400)
+      }
+    }
+
+    randomAnimRef.current = setTimeout(runStep, 50)
+  }, [isLocalRandomizing, characters, cols, isHost, startMusic, playMoveSound, playGong, sendEvent])
+
+  // O destaque do aleatório do outro player vem de remoteRandomHighlight
+  // p1RandomHighlight = destaque local quando sou P1, ou destaque remoto quando sou P2
+  // p2RandomHighlight = destaque remoto quando sou P1, ou destaque local quando sou P2
+  const p1RandomHighlight = isHost ? localRandomHighlight : remoteRandomHighlight
+  const p2RandomHighlight = isHost ? remoteRandomHighlight : localRandomHighlight
+
   return (
     <div className="app-shell">
       <div className="crt-overlay"></div>
@@ -241,10 +338,13 @@ function App() {
               p2Cursor={isConnected ? remoteCursor : null}
               selectedIndex={selectedIndex}
               p2SelectedIndex={isConnected ? remoteSelectedIndex : null}
+              p1RandomHighlight={p1RandomHighlight}
+              p2RandomHighlight={isConnected ? p2RandomHighlight : null}
               cols={cols}
               editMode={editMode}
               onHoverCell={() => {}}
               onClickCell={(index) => {
+                if (isLocalRandomizing) return
                 setCursor({ x: index % cols, y: Math.floor(index / cols) })
                 setSelectedIndex(index)
                 playGong()
@@ -255,6 +355,14 @@ function App() {
             />
           </div>
         </div>
+
+        <button
+          className={`random-btn${isLocalRandomizing ? ' randomizing' : ''}`}
+          onClick={handleRandom}
+          disabled={isLocalRandomizing}
+        >
+          {isLocalRandomizing ? '...' : '🎲 ALEATÓRIO'}
+        </button>
       </main>
 
       <input
