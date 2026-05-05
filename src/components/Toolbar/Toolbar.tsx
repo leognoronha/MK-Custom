@@ -21,6 +21,7 @@ interface ToolbarProps {
   updateProfile: (id: string) => void
   deleteProfile: (id: string) => void
   resetGrid: () => void
+  onShareSave: () => void
   peerId: string | null
   isConnected: boolean
   isHost: boolean
@@ -46,6 +47,7 @@ export function Toolbar({
   updateProfile,
   deleteProfile,
   resetGrid,
+  onShareSave,
   peerId,
   isConnected,
   isHost
@@ -111,6 +113,13 @@ export function Toolbar({
               />
               <button onClick={handleSave} disabled={!newProfileName.trim()}>Salvar</button>
             </div>
+            <button
+              onClick={onShareSave}
+              style={{ marginTop: '8px', width: '100%', background: '#6a1b9a', borderColor: '#4a148c' }}
+              title="Gera um link com o estado atual e copia para a área de transferência"
+            >
+              📤 Compartilhar Save
+            </button>
 
             {profiles.length > 0 && (
               <div className="profiles-list">

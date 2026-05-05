@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import html2canvas from 'html2canvas'
+import { Toaster, toast } from 'react-hot-toast'
 
 import { useGameState } from './hooks/useGameState'
 import { useAudio } from './hooks/useAudio'
 import { useMultiplayer } from './hooks/useMultiplayer'
 import type { Cursor } from './types'
-import { normalizeImage } from './utils/imageUtils'
+import { normalizeImage, uploadImageToCloud } from './utils/imageUtils'
+import { exportStateToURLParam, importStateFromURLParam } from './utils/saveUtils'
 
 import { Toolbar } from './components/Toolbar/Toolbar'
 import { PreviewPanel } from './components/PreviewPanel/PreviewPanel'
@@ -14,17 +16,17 @@ import { CharacterGrid } from './components/CharacterGrid/CharacterGrid'
 import './index.css'
 
 function App() {
-  const { 
-    characters, 
-    title, 
-    backgroundUrl, 
-    rows, 
-    cols, 
+  const {
+    characters,
+    title,
+    backgroundUrl,
+    rows,
+    cols,
     profiles,
-    setTitle, 
-    setBackgroundUrl, 
-    updateGridSize, 
-    updateCellImage, 
+    setTitle,
+    setBackgroundUrl,
+    updateGridSize,
+    updateCellImage,
     updateCellName,
     saveCurrentProfile,
     loadProfile,
@@ -82,7 +84,6 @@ function App() {
     }
   })
 
-  // Whenever Host changes massive states visually, push the update over network.
   useEffect(() => {
     if (isHost && isConnected) {
       sendEvent({
@@ -92,21 +93,57 @@ function App() {
     }
   }, [isHost, isConnected, title, backgroundUrl, rows, cols, characters, sendEvent])
 
+  useEffect(() => {
+    const hash = window.location.hash.slice(1)
+    const saveParam = new URLSearchParams(hash).get('save')
+    if (!saveParam) return
+
+    const restored = importStateFromURLParam(saveParam)
+    if (restored) {
+      forceStateSync(restored)
+      window.history.replaceState({}, '', window.location.pathname)
+      toast.success('🎮 Save carregado com sucesso!')
+    } else {
+      toast.error('Não foi possível carregar o save da URL.')
+    }
+  }, [])
+
 
   const focusedIndex = cursor.y * cols + cursor.x
   const previewIndex = focusedIndex
 
   const handleFileUpload = useCallback(
     async (file: File, targetIndex = selectedIndex ?? focusedIndex) => {
+      const toastId = toast.loading('⬆️ Fazendo upload da imagem...')
       try {
-        const normalized = await normalizeImage(file)
-        updateCellImage(targetIndex, normalized)
-      } catch (error) {
-        console.warn('Falha ao processar imagem.', error)
+        const imageUrl = await uploadImageToCloud(file)
+        updateCellImage(targetIndex, imageUrl)
+        toast.success('✅ Imagem aplicada!', { id: toastId })
+      } catch (err) {
+        console.warn('Upload para ImgBB falhou, usando Base64 local.', err)
+        try {
+          const normalized = await normalizeImage(file)
+          updateCellImage(targetIndex, normalized)
+          toast.success('✅ Imagem aplicada (local)!', { id: toastId })
+        } catch {
+          toast.error('❌ Erro ao processar imagem.', { id: toastId })
+        }
       }
     },
     [focusedIndex, updateCellImage, selectedIndex],
   )
+
+  const handleShareSave = useCallback(() => {
+    try {
+      const state = { title, backgroundUrl, rows, cols, characters }
+      const compressed = exportStateToURLParam(state)
+      const shareUrl = `${window.location.origin}${window.location.pathname}?save=${compressed}`
+      navigator.clipboard.writeText(shareUrl)
+      toast.success('📋 Link de save copiado!')
+    } catch {
+      toast.error('Erro ao gerar link de save.')
+    }
+  }, [title, backgroundUrl, rows, cols, characters])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -154,7 +191,7 @@ function App() {
   }, [cursor, rows, cols, startMusic, playMoveSound, playGong, isHost, sendEvent])
 
   const handlePaste = useCallback(
-    (event: ClipboardEvent) => {
+    async (event: ClipboardEvent) => {
       if (!editMode) return
       const pastedImage = Array.from(event.clipboardData?.items ?? []).find((item) =>
         item.type.startsWith('image/'),
@@ -163,9 +200,25 @@ function App() {
       const file = pastedImage.getAsFile()
       if (!file) return
       event.preventDefault()
-      handleFileUpload(file)
+
+      const targetIndex = selectedIndex ?? focusedIndex
+      const toastId = toast.loading('⬆️ Fazendo upload da imagem...')
+      try {
+        const imageUrl = await uploadImageToCloud(file)
+        updateCellImage(targetIndex, imageUrl)
+        toast.success('✅ Imagem aplicada!', { id: toastId })
+      } catch (err) {
+        console.warn('Upload falhou, usando Base64 local.', err)
+        try {
+          const normalized = await normalizeImage(file)
+          updateCellImage(targetIndex, normalized)
+          toast.success('✅ Imagem aplicada (local)!', { id: toastId })
+        } catch {
+          toast.error('❌ Erro ao processar imagem.', { id: toastId })
+        }
+      }
     },
-    [editMode, handleFileUpload],
+    [editMode, selectedIndex, focusedIndex, updateCellImage],
   )
 
   useEffect(() => {
@@ -173,16 +226,26 @@ function App() {
     return () => window.removeEventListener('paste', handlePaste)
   }, [handlePaste])
 
-  const onBackgroundUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const onBackgroundUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (!file) return
-    const reader = new FileReader()
-    reader.onload = () => {
-      if (typeof reader.result === 'string') {
-        setBackgroundUrl(reader.result)
+    const toastId = toast.loading('⬆️ Fazendo upload do fundo...')
+    try {
+      const imageUrl = await uploadImageToCloud(file)
+      setBackgroundUrl(imageUrl)
+      toast.success('✅ Fundo aplicado!', { id: toastId })
+    } catch (err) {
+      console.warn('Upload do fundo falhou, usando Base64 local.', err)
+      const reader = new FileReader()
+      reader.onload = () => {
+        if (typeof reader.result === 'string') {
+          setBackgroundUrl(reader.result)
+          toast.success('✅ Fundo aplicado (local)!', { id: toastId })
+        }
       }
+      reader.onerror = () => toast.error('❌ Erro ao carregar fundo.', { id: toastId })
+      reader.readAsDataURL(file)
     }
-    reader.readAsDataURL(file)
   }
 
   const handleExport = useCallback(async () => {
@@ -285,8 +348,20 @@ function App() {
 
   return (
     <div className="app-shell">
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          style: {
+            background: '#1a1a2e',
+            color: '#e0e0e0',
+            border: '1px solid #333',
+            fontFamily: 'monospace',
+            fontSize: '12px',
+          },
+        }}
+      />
       <div className="crt-overlay"></div>
-      
+
       {!toolbarOpen && (
         <button className="floating-toggle" onClick={() => setToolbarOpen(true)}>
           Menu
@@ -313,6 +388,7 @@ function App() {
         updateProfile={updateProfile}
         deleteProfile={deleteProfile}
         resetGrid={resetGrid}
+        onShareSave={handleShareSave}
         peerId={peerId}
         isConnected={isConnected}
         isHost={isHost}
@@ -325,8 +401,8 @@ function App() {
         <div className="capture-area" ref={boardRef}>
           <h1>{title}</h1>
           <div className="content-layout">
-            <PreviewPanel 
-              character={characters[previewIndex]} 
+            <PreviewPanel
+              character={characters[previewIndex]}
               editMode={editMode}
               updateCellName={(name) => updateCellName(previewIndex, name)}
               triggerUpload={triggerUpload}
@@ -342,7 +418,7 @@ function App() {
               p2RandomHighlight={isConnected ? p2RandomHighlight : null}
               cols={cols}
               editMode={editMode}
-              onHoverCell={() => {}}
+              onHoverCell={() => { }}
               onClickCell={(index) => {
                 if (isLocalRandomizing) return
                 setCursor({ x: index % cols, y: Math.floor(index / cols) })

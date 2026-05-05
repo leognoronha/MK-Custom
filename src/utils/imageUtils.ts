@@ -37,3 +37,25 @@ export const normalizeImage = async (file: File): Promise<string> => {
   context.drawImage(image, offsetX, offsetY, drawWidth, drawHeight)
   return canvas.toDataURL('image/jpeg', 0.9)
 }
+
+export const uploadImageToCloud = async (file: File): Promise<string> => {
+  const apiKey = import.meta.env.VITE_IMGBB_API_KEY
+  if (!apiKey) throw new Error('Chave da API ImgBB não configurada no .env')
+
+  const formData = new FormData()
+  formData.append('image', file)
+
+  const response = await fetch(`https://api.imgbb.com/1/upload?key=${apiKey}`, {
+    method: 'POST',
+    body: formData,
+  })
+
+  if (!response.ok) {
+    throw new Error(`Falha no upload: ${response.status} ${response.statusText}`)
+  }
+
+  const json = await response.json()
+  if (!json?.data?.url) throw new Error('Resposta inválida da API ImgBB')
+
+  return json.data.url as string
+}
